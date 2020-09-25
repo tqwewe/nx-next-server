@@ -11,6 +11,7 @@ import {
   PHASE_DEVELOPMENT_SERVER,
   PHASE_PRODUCTION_SERVER,
 } from "next/dist/next-server/lib/constants";
+import deepMerge from "./deep-merge";
 
 export default function initNextConfig(appName: string) {
   const logger = getLogger(false);
@@ -22,7 +23,16 @@ export default function initNextConfig(appName: string) {
   );
   const root = path.join(workspaceRoot, workspace.projects[appName].root);
 
-  const options = (Object.entries(nextSchema.properties) as [
+  const buildConf = workspace.projects[appName].architect.build;
+  const serveConf = workspace.projects[appName].architect.serve;
+
+  const workspaceOptions = deepMerge(
+    serveConf.options,
+    (serveConf.configurations &&
+      serveConf.configurations[process.env.NODE_ENV]) ||
+      {}
+  );
+  const defaultOptions = (Object.entries(nextSchema.properties) as [
     string,
     {
       type: string;
@@ -40,18 +50,29 @@ export default function initNextConfig(appName: string) {
   }>(
     (acc, [key, { default: def }]) => ({
       ...acc,
-      [key]: workspace.projects[appName].architect.serve.options[key] || def,
+      [key]: def,
     }),
     {}
+  );
+  const options = deepMerge(defaultOptions, workspaceOptions);
+
+  const buildOptions = deepMerge(
+    {
+      root: `apps/${appName}`,
+      outputPath: `dist/apps/${appName}`,
+      fileReplacements: [],
+    },
+    deepMerge(
+      buildConf.options,
+      (buildConf.configurations &&
+        buildConf.configurations[process.env.NODE_ENV]) ||
+        {}
+    )
   );
 
   const config = prepareConfig(
     options.dev ? PHASE_DEVELOPMENT_SERVER : PHASE_PRODUCTION_SERVER,
-    {
-      outputPath: `dist/apps/${appName}`,
-      root: `apps/${appName}`,
-      fileReplacements: [],
-    },
+    buildOptions,
     {
       workspaceRoot,
     } as BuilderContext
