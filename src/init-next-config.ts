@@ -1,8 +1,5 @@
 import * as path from "path";
 import * as fs from "fs";
-import { BuilderContext } from "@angular-devkit/architect";
-import { terminal } from "@angular-devkit/core";
-import { getLogger } from "@nrwl/tao/src/shared/logger";
 import nextSchema from "@nrwl/next/src/builders/server/schema.json";
 import { NextServerOptions, ProxyConfig } from "@nrwl/next/src/utils/types";
 import { prepareConfig } from "@nrwl/next/src/utils/config";
@@ -14,17 +11,14 @@ import {
 import deepMerge from "./deep-merge";
 
 export default function initNextConfig(appName: string) {
-  const logger = getLogger(false);
-  const infoPrefix = `[ ${terminal.dim(terminal.cyan("info"))} ] `;
-
   const workspaceRoot = findWorkspaceRoot(process.cwd()).dir;
   const workspace = JSON.parse(
     fs.readFileSync(path.join(workspaceRoot, "workspace.json")).toString()
   );
   const root = path.join(workspaceRoot, workspace.projects[appName].root);
 
-  const buildConf = workspace.projects[appName].architect.build;
-  const serveConf = workspace.projects[appName].architect.serve;
+  const buildConf = workspace.projects[appName].targets.build;
+  const serveConf = workspace.projects[appName].targets.serve;
 
   const workspaceOptions = deepMerge(
     serveConf.options,
@@ -75,7 +69,7 @@ export default function initNextConfig(appName: string) {
     buildOptions,
     {
       workspaceRoot,
-    } as BuilderContext
+    } as any
   );
 
   const settings: NextServerOptions = {
@@ -95,11 +89,8 @@ export default function initNextConfig(appName: string) {
     ? path.join(workspaceRoot, options.proxyConfig)
     : path.join(root, "proxy.conf.json");
   if (fs.existsSync(proxyConfigPath)) {
-    console.log();
-    logger.info(
-      `${infoPrefix} found proxy configuration at ${proxyConfigPath}`
-    );
     proxyConfig = require(proxyConfigPath);
+    console.log(`found proxy configuration at ${proxyConfigPath}`);
   }
 
   return { settings, proxyConfig };
